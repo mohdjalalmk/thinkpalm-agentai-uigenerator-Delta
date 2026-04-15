@@ -1,173 +1,261 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Sparkles, Cpu, Layers, Globe, Terminal, Code, Eye, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import PromptEditor from '@/components/PromptEditor';
 import ComponentPreview from '@/components/ComponentPreview';
 import CodeExporter from '@/components/CodeExporter';
 
+interface HistoryItem {
+  id: string;
+  code: string;
+  prd: string;
+  timestamp: number;
+  title: string;
+}
+
+const Icons = {
+  Logo: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-cyan-400">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  ),
+  History: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" />
+    </svg>
+  ),
+  Cpu: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <rect width="16" height="16" x="4" y="4" rx="2" /><rect width="6" height="6" x="9" y="9" rx="1" /><path d="M15 2v2" /><path d="M15 20v2" /><path d="M2 15h2" /><path d="M20 15h2" /><path d="M9 2v2" /><path d="M9 20v2" /><path d="M2 9h2" /><path d="M20 9h2" />
+    </svg>
+  ),
+  Layers: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-500">
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m2.6 11.23 8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9" /><path d="m2.6 16.23 8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9" />
+    </svg>
+  ),
+  Eye: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  Terminal: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <polyline points="4 17 10 11 4 5" /><line x1="12" x2="20" y1="19" y2="19" />
+    </svg>
+  ),
+  Sparkles: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-cyan-400">
+      <path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+    </svg>
+  ),
+  Trash: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-red-400">
+      <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  )
+};
+
 export default function Home() {
   const [prd, setPrd] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ai_ui_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setHistory(parsed);
+      } catch (e) {
+        console.error("Failed to load history", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('ai_ui_history', JSON.stringify(history));
+  }, [history]);
 
   const handleGenerate = async () => {
     if (!prd.trim()) return;
 
     setIsGenerating(true);
+    setStatusMessage('ARCHITECT: Planning structure...');
+
     try {
+      await new Promise(r => setTimeout(r, 1000));
+      setStatusMessage('DEVELOPER: Synthesizing React components...');
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prd, systemPrompt }),
+        body: JSON.stringify({ prd }),
       });
 
       const data = await response.json();
+
       if (data.code) {
+        setStatusMessage('REVIEWER: Polishing design tokens...');
+        await new Promise(r => setTimeout(r, 800));
+
         setGeneratedCode(data.code);
-        // Automatically switch to preview if successful
         setActiveTab('preview');
+
+        const newItem: HistoryItem = {
+          id: Math.random().toString(36).substring(7),
+          code: data.code,
+          prd: prd,
+          timestamp: Date.now(),
+          title: prd.slice(0, 30) + (prd.length > 30 ? '...' : '')
+        };
+        setHistory(prev => [newItem, ...prev]);
+        setSelectedHistoryId(newItem.id);
       }
     } catch (error) {
       console.error('Generation failed:', error);
+      setStatusMessage('ERROR: Pipeline interrupted.');
     } finally {
       setIsGenerating(false);
+      setTimeout(() => setStatusMessage(''), 3000);
     }
   };
 
+  const loadFromHistory = (item: HistoryItem) => {
+    setPrd(item.prd);
+    setGeneratedCode(item.code);
+    setSelectedHistoryId(item.id);
+    setActiveTab('preview');
+  };
+
+  const deleteHistoryItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory(prev => prev.filter(item => item.id !== id));
+    if (selectedHistoryId === id) setSelectedHistoryId(null);
+  };
+
   return (
-    <main className="relative min-h-screen flex flex-col p-4 md:p-8 gap-6 z-10">
-      {/* Background Decorative Blobs */}
+    <main className="relative h-screen flex flex-col overflow-hidden bg-[#030408] font-sans selection:bg-cyan-500/30">
       <div className="blob blob-1" />
       <div className="blob blob-2" />
 
-      {/* Modern Header */}
-      <header className="flex items-center justify-between px-4 py-2">
+      {/* FIXED TOP HEADER */}
+      <header className="h-16 border-b border-white/5 bg-black/40 backdrop-blur-xl flex items-center justify-between px-6 z-50 shrink-0">
         <div className="flex items-center gap-4">
-          <motion.div 
-            whileHover={{ scale: 1.05, rotate: 5 }}
-            className="w-12 h-12 glass flex items-center justify-center border-cyan-500/20 shadow-lg shadow-cyan-500/10"
-          >
-            <Bot className="text-cyan-400 w-7 h-7" />
-          </motion.div>
-          <div>
-            <h1 className="text-2xl font-black text-gradient leading-tight">
-              AGENTIC<span className="text-cyan-400 text-sm font-mono ml-2 tracking-widest opacity-60">UI_v1</span>
+          <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+            <Icons.Logo />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-sm font-black tracking-tighter text-white uppercase">
+              Agentic <span className="text-cyan-400">Pipeline</span>
             </h1>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">AI Synthesis Pipeline Active</p>
+              <span className={`w-1.5 h-1.5 rounded-full ${isGenerating ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+                {statusMessage || 'System Operational'}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-6 px-4 py-2 glass-morphism rounded-full mr-4">
-             <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-               <Cpu size={14} className="text-cyan-500" /> {
-                 process.env.NEXT_PUBLIC_GEMINI_API_KEY?.startsWith('gsk_') ? 'GROQ_LLAMA_3.3' : 
-                 process.env.NEXT_PUBLIC_GEMINI_API_KEY?.startsWith('xai-') ? 'GROK_BETA' : 
-                 'GEMINI_1.5_FLASH'
-               }
-             </div>
-             <div className="h-4 w-px bg-white/10" />
-             <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-               <Layers size={14} className="text-purple-500" /> TAILWIND_RUNTIME
-             </div>
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-4 px-4 py-1.5 glass-morphism rounded-xl border border-white/5">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <Icons.Cpu /> ENGINE_V2.0
+            </div>
           </div>
-          <button className="w-10 h-10 glass flex items-center justify-center hover:bg-white/10 transition-colors">
-            <Settings size={18} className="text-slate-400" />
-          </button>
         </div>
       </header>
 
-      {/* Main Dashboard Grid */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
-        
-        {/* Left: Editor Segment (Col 1-4) */}
-        <motion.section 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-4 flex flex-col min-h-0"
-        >
-          <div className="flex-1 glass p-1 flex flex-col overflow-hidden">
+      {/* MAIN LAYOUT BODY */}
+      <div className="flex-1 flex overflow-hidden">
+
+        {/* SIDEBAR: HISTORY */}
+        <aside className="w-16 md:w-20 bg-black/40 border-r border-white/5 flex flex-col items-center py-6 gap-6 shrink-0 z-40 relative">
+          <div className="flex-1 w-full flex flex-col items-center gap-4 overflow-y-auto custom-scrollbar px-2">
+            {history.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => loadFromHistory(item)}
+                title={item.title}
+                className={`group relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${selectedHistoryId === item.id
+                  ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                  : 'bg-white/5 text-slate-500 hover:bg-white/10 hover:text-slate-300'
+                  }`}
+              >
+                <Icons.History />
+                <div
+                  onClick={(e) => deleteHistoryItem(item.id, e)}
+                  className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 bg-red-500/90 p-0.5 rounded-full hover:scale-110 transition-all"
+                >
+                  <Icons.Trash />
+                </div>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* CONTENT AREA: EDITOR + PREVIEW */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+          {/* EDITOR PANEL (Left) */}
+          <section className="w-full md:w-[400px] border-r border-white/5 flex flex-col shrink-0 bg-[#030408]/40">
             <PromptEditor
               prd={prd}
               setPrd={setPrd}
-              systemPrompt={systemPrompt}
-              setSystemPrompt={setSystemPrompt}
               onGenerate={handleGenerate}
               isGenerating={isGenerating}
             />
-          </div>
-        </motion.section>
+          </section>
 
-        {/* Right: Output Segment (Col 5-12) */}
-        <section className="lg:col-span-8 flex flex-col gap-4 min-h-0">
-          {/* Tab Controller UI */}
-          <div className="flex items-center justify-between px-2">
-            <div className="flex gap-2 p-1 glass-morphism rounded-xl">
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'preview' 
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5' 
-                  : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <Eye size={14} /> VISUAL PREVIEW
-              </button>
-              <button
-                onClick={() => setActiveTab('code')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'code' 
-                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/5' 
-                  : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <Terminal size={14} /> SOURCE CODE
-              </button>
-            </div>
-            
-            {activeTab === 'preview' && (
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full">
-                <Sparkles size={12} className="text-cyan-400" /> Real-time Synthesis
+          {/* PREVIEW/CODE PANEL (Right) */}
+          <section className="flex-1 flex flex-col min-w-0 bg-black/20">
+            {/* Nav Tabs */}
+            <div className="h-14 flex items-center justify-between px-6 border-b border-white/5 bg-black/40 shrink-0">
+              <div className="flex p-1 bg-[#10141d] rounded-xl border border-white/10">
+                <button
+                  onClick={() => setActiveTab('preview')}
+                  className={`flex items-center gap-2 px-6 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'preview'
+                    ? 'bg-cyan-500 text-white shadow-[0_0_20px_rgba(34,211,238,0.3)]'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                >
+                  <Icons.Eye /> Preview
+                </button>
+                <button
+                  onClick={() => setActiveTab('code')}
+                  className={`flex items-center gap-2 px-6 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'code'
+                    ? 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                >
+                  <Icons.Terminal /> Code
+                </button>
               </div>
-            )}
-          </div>
 
-          {/* Content Card */}
-          <div className="flex-1 glass p-2 relative overflow-hidden">
-             <AnimatePresence mode="wait">
+              <div className="hidden md:flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                <Icons.Sparkles /> Synthesis v2.1
+              </div>
+            </div>
+
+            {/* Viewport Content */}
+            <div className="flex-1 relative overflow-hidden">
               {activeTab === 'preview' ? (
-                <motion.div
-                  key="preview"
-                  initial={{ opacity: 0, y: 10, scale: 0.99 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.99 }}
-                  transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                  className="h-full"
-                >
+                <div className="h-full animate-in fade-in duration-500">
                   <ComponentPreview code={generatedCode} isGenerating={isGenerating} />
-                </motion.div>
+                </div>
               ) : (
-                <motion.div
-                  key="code"
-                  initial={{ opacity: 0, y: 10, scale: 0.99 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.99 }}
-                  transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                  className="h-full"
-                >
+                <div className="h-full animate-in scale-in duration-500">
                   <CodeExporter code={generatedCode} />
-                </motion.div>
+                </div>
               )}
-             </AnimatePresence>
-          </div>
-        </section>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );

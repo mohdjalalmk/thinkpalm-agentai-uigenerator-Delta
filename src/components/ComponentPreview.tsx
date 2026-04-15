@@ -1,8 +1,39 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, Monitor, Tablet, Smartphone, RefreshCw, Box, Zap } from 'lucide-react';
-import { motion } from 'framer-motion';
+
+const Icons = {
+  Eye: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-cyan-400">
+      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  Monitor: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" />
+    </svg>
+  ),
+  Tablet: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <rect width="16" height="20" x="4" y="2" rx="2" /><line x1="12" x2="12" y1="18" y2="18" />
+    </svg>
+  ),
+  Smartphone: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <rect width="10" height="18" x="7" y="3" rx="2" /><line x1="12" x2="12" y1="18" y2="18" />
+    </svg>
+  ),
+  Refresh: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" />
+    </svg>
+  ),
+  Activity: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  )
+};
 
 interface ComponentPreviewProps {
   code: string;
@@ -12,206 +43,170 @@ interface ComponentPreviewProps {
 const ComponentPreview: React.FC<ComponentPreviewProps> = ({ code, isGenerating }) => {
   const [viewMode, setViewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
-  const getWidth = () => {
-    switch (viewMode) {
-      case 'tablet': return '768px';
-      case 'mobile': return '375px';
-      default: return '100%';
-    }
+  const viewportWidths = {
+    desktop: '100%',
+    tablet: '768px',
+    mobile: '390px'
   };
 
-  const encodedCode = typeof window !== 'undefined' ? btoa(unescape(encodeURIComponent(code || ''))) : '';
+  /**
+   * Stips React boilerplate to show only the visual components in the preview.
+   * Extracts the content inside return (...) or the main JSX block.
+   */
+  const cleanCodeForPreview = (rawCode: string) => {
+    if (!rawCode) return '';
+
+    // 1. Try to find the content inside the main return (...) block
+    const returnMatch = rawCode.match(/return\s*\(\s*([\s\S]*)\s*\)\s*;/);
+    let cleaned = '';
+
+    if (returnMatch && returnMatch[1]) {
+      cleaned = returnMatch[1].trim();
+    } else {
+      // 2. Fallback: Strip imports and exports and look for the first JSX tag
+      cleaned = rawCode
+        .replace(/import[\s\S]*?;/g, '')
+        .replace(/export\s+default\s+function[\s\S]*?\{/g, '')
+        .replace(/export\s+default\s+[\s\S]*?;/g, '')
+        .replace(/^\s*\}\s*$/gm, '');
+
+      const firstTag = cleaned.indexOf('<');
+      const lastTag = cleaned.lastIndexOf('>');
+
+      if (firstTag !== -1 && lastTag !== -1) {
+        cleaned = cleaned.substring(firstTag, lastTag + 1).trim();
+      }
+    }
+
+    // 3. Comprehensive React-to-HTML attribute conversion
+    return cleaned
+      .replace(/\bclassName\s*=\s*/g, 'class=')
+      .replace(/\bhtmlFor\s*=\s*/g, 'for=')
+      .replace(/\bstrokeWidth\s*=\s*/g, 'stroke-width=')
+      .replace(/\bstrokeLinecap\s*=\s*/g, 'stroke-linecap=')
+      .replace(/\bstrokeLinejoin\s*=\s*/g, 'stroke-linejoin=')
+      .replace(/\bonClick\s*=\s*/g, 'onclick=')
+      .trim();
+  };
+
+  const wrapCode = (rawCode: string) => {
+    const visualContent = cleanCodeForPreview(rawCode);
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <script src="https://cdn.tailwindcss.com"></script>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+          <style>
+            body { 
+              font-family: 'Inter', sans-serif; 
+              background: #030408; 
+              margin: 0; 
+              color: white; 
+              overflow-x: hidden;
+            }
+            ::-webkit-scrollbar { width: 4px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+          </style>
+        </head>
+        <body class="p-0 m-0">
+          <div id="app-root" class="animate-in fade-in">
+            ${visualContent || '<div class="flex items-center justify-center min-h-screen text-slate-500 font-mono text-[10px] uppercase tracking-widest">Architect: System Awaiting Payload...</div>'}
+          </div>
+        </body>
+      </html>
+    `;
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Device Toolbar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-black/5">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-            <Eye size={16} className="text-cyan-400" />
+    <div className="flex flex-col h-full bg-[#030408]/50 overflow-hidden">
+      {/* Toolrail Header */}
+      <div className="h-14 flex items-center justify-between px-6 border-b border-white/5 bg-black/40">
+        <div className="flex items-center gap-6">
+          <div className="flex bg-white/5 p-1 rounded-lg border border-white/5">
+            <button
+              onClick={() => setViewMode('desktop')}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'desktop' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              title="Desktop View"
+            >
+              <Icons.Monitor />
+            </button>
+            <button
+              onClick={() => setViewMode('tablet')}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'tablet' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              title="Tablet View"
+            >
+              <Icons.Tablet />
+            </button>
+            <button
+              onClick={() => setViewMode('mobile')}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'mobile' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              title="Mobile View"
+            >
+              <Icons.Smartphone />
+            </button>
           </div>
-          <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Interactive Render</span>
+
+          <div className="h-4 w-px bg-white/10" />
+
+          <button className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors">
+            <Icons.Refresh /> RE-RENDER
+          </button>
         </div>
-        
-        <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
-          <button 
-            onClick={() => setViewMode('desktop')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${viewMode === 'desktop' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Monitor size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Desktop</span>
-          </button>
-          <button 
-            onClick={() => setViewMode('tablet')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${viewMode === 'tablet' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Tablet size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Tablet</span>
-          </button>
-          <button 
-            onClick={() => setViewMode('mobile')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${viewMode === 'mobile' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Smartphone size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Mobile</span>
-          </button>
+
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${isGenerating ? 'border-orange-500/30 text-orange-400 bg-orange-500/5' : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/5'}`}>
+            <Icons.Activity /> {isGenerating ? 'Synthesizing' : 'Live Render'}
+          </div>
         </div>
       </div>
 
-      {/* Preview Content */}
-      <div className="flex-1 bg-slate-950/50 backdrop-blur-3xl relative overflow-hidden flex items-center justify-center p-8">
-        {isGenerating ? (
-          <div className="flex flex-col items-center gap-6">
-            <div className="relative">
-              <RefreshCw className="w-12 h-12 text-cyan-500 animate-spin" />
-              <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cyan-400 w-4 h-4 animate-pulse" />
+      {/* Main Preview Container with 'Device Bracket' */}
+      <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center bg-black/20 custom-scrollbar relative">
+        {!code && !isGenerating ? (
+          <div className="flex flex-col items-center justify-center space-y-6 text-center animate-in zoom-in-98 duration-700">
+            <div className="w-20 h-20 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center shimmer">
+              <Icons.Eye />
             </div>
-            <div className="text-center space-y-1">
-              <p className="text-sm font-black text-slate-200 uppercase tracking-widest">Building Components</p>
-              <p className="text-[10px] text-slate-500 uppercase tracking-[0.3em]">Assembling Tailwind Node Tree...</p>
-            </div>
-          </div>
-        ) : !code ? (
-          <div className="text-center space-y-6 max-w-sm">
-            <div className="w-20 h-20 glass-morphism rounded-3xl flex items-center justify-center mx-auto border-cyan-500/10">
-              <Box size={32} className="text-slate-700 hover:text-cyan-500/50 transition-colors" />
-            </div>
-            <div className="space-y-2">
-              <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Waiting for Architecture</p>
-              <p className="text-slate-500 text-[11px] leading-relaxed uppercase tracking-wider">Define your PRD in the editor to synthesize a functional UI preview here.</p>
+            <div className="space-y-1">
+              <h3 className="text-sm font-black text-slate-200 uppercase tracking-[0.3em]">Architect Node Ready</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Awaiting PRD to generate UI tree</p>
             </div>
           </div>
         ) : (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full h-full flex items-center justify-center"
+          <div
+            className="relative glass border-[12px] border-[#141822] shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-700 ease-in-out"
+            style={{ width: viewportWidths[viewMode], height: 'fit-content', minHeight: '600px' }}
           >
-            <div 
-              className="bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-700 ease-[0.23,1,0.32,1] ring-1 ring-black/5"
-              style={{ width: getWidth(), height: '100%', maxHeight: '800px' }}
-            >
-              <iframe
-                title="Preview"
-                className="w-full h-full border-none"
-                srcDoc={`
-                  <!DOCTYPE html>
-                  <html>
-                    <head>
-                      <meta charset="utf-8">
-                      <script>
-                        window.process = { env: { NODE_ENV: 'production' } };
-                      </script>
-                      
-                      <!-- Standard UMD Loads -->
-                      <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-                      <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-                      <script>
-                        // Force globals for libraries that check for them
-                        window.React = React;
-                        window.ReactDOM = ReactDOM;
-                      </script>
-
-                      <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-                      <script src="https://cdn.tailwindcss.com"></script>
-                      <script src="https://unpkg.com/framer-motion@11.0.8/dist/framer-motion.js"></script>
-                      <script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.min.js"></script>
-                      
-                      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-                      <style>
-                        body { 
-                          font-family: 'Inter', sans-serif; 
-                          background: white; 
-                          margin: 0; 
-                          padding: 0; 
-                          overflow-x: hidden;
-                        }
-                        #root { min-height: 100vh; }
-                        ::-webkit-scrollbar { width: 6px; }
-                        ::-webkit-scrollbar-track { background: transparent; }
-                        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-                      </style>
-                    </head>
-                    <body>
-                      <div id="root"></div>
-                      <script type="text/babel">
-                        const { useState, useEffect, useMemo, useCallback, useRef, Fragment, forwardRef } = React;
-                        
-                        // Setup FM and Lucide
-                        const FM = window.Motion || window.framerMotion || window.FramerMotion;
-                        const { motion, AnimatePresence, LayoutGroup } = FM || {};
-                        const Lucide = window.LucideReact || window.lucide || window.Lucide;
-                        
-                        // Safely map icons
-                        if (Lucide) {
-                          try {
-                            Object.entries(Lucide).forEach(([name, component]) => {
-                              if (component) window[name] = component;
-                            });
-                          } catch (e) {
-                            console.warn("Lucide icon mapping partially failed:", e);
-                          }
-                        }
-
-                        try {
-                          const rawCode = decodeURIComponent(escape(atob("${encodedCode}")));
-                          
-                          let processedCode = rawCode.split('\\n')
-                            .filter(line => !line.trim().startsWith('import ') && !line.trim().startsWith('import{'))
-                            .join('\\n');
-                          
-                          window.module = { exports: {} };
-                          window.exports = window.module.exports;
-
-                          processedCode = processedCode.replace(/export\\s+default\\s+/g, 'window.module.exports.default = ');
-                          processedCode = processedCode.replace(/export\\s+const\\s+/g, 'window.module.exports.');
-                          processedCode = processedCode.replace(/export\\s+function\\s+/g, 'window.module.exports.');
-                          processedCode = processedCode.replace(/export\\s+class\\s+/g, 'window.module.exports.');
-
-                          const transpiled = Babel.transform(processedCode, { 
-                            presets: ['react'],
-                            filename: 'preview.tsx'
-                          }).code;
-                          
-                          eval(transpiled);
-
-                          const AppRoot = window.module.exports.default || Object.values(window.module.exports)[0];
-                          
-                          delete window.module;
-                          delete window.exports;
-
-                          if (!AppRoot) {
-                            const matches = processedCode.match(/function\\s+(\\w+)/) || processedCode.match(/const\\s+(\\w+)\\s+=/);
-                            if (matches) AppRoot = eval(matches[1]);
-                          }
-                          
-                          if (AppRoot) {
-                            ReactDOM.createRoot(document.getElementById('root')).render(
-                              <React.StrictMode>
-                                <AppRoot />
-                              </React.StrictMode>
-                            );
-                          } else {
-                            throw new Error("Could not find a React component to render.");
-                          }
-
-                        } catch (err) {
-                          console.error("Preview Render Error:", err);
-                          document.getElementById('root').innerHTML = \`
-                            <div style="color: #ef4444; padding: 3rem; font-family: system-ui, sans-serif; text-align: center;">
-                              <h3 style="margin-bottom: 1rem;">Rendering Failed</h3>
-                              <p style="font-size: 14px; opacity: 0.8; margin-bottom: 2rem;">\${err.message}</p>
-                              <pre style="background: rgba(239, 68, 68, 0.05); padding: 1.5rem; border-radius: 12px; text-align: left; font-size: 11px; overflow: auto; border: 1px solid rgba(239, 68, 68, 0.1);">\${err.stack || err.message}</pre>
-                            </div>
-                          \`;
-                        }
-                      </script>
-                    </body>
-                  </html>
-                `}
-              />
+            {/* Device Status Bar Mockup */}
+            <div className="h-8 bg-[#141822] flex items-center justify-between px-8 border-b border-white/5">
+              <div className="text-[9px] font-mono text-slate-500 tracking-widest">UI_SYNTHESIS_V1.0</div>
+              <div className="flex gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-700" />
+              </div>
             </div>
-          </motion.div>
+
+            {/* Loader Overlay */}
+            {isGenerating && (
+              <div className="absolute inset-0 z-50 bg-[#030408]/80 backdrop-blur-md flex flex-col items-center justify-center space-y-4">
+                <div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
+                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] animate-pulse">Building Surface...</p>
+              </div>
+            )}
+
+            <iframe
+              key={code}
+              srcDoc={wrapCode(code)}
+              className="w-full h-full border-none min-h-[570px]"
+              title="Preview"
+            />
+          </div>
         )}
       </div>
     </div>

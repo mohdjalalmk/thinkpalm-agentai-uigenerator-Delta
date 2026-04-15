@@ -1,111 +1,87 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Settings2, FileText, ChevronDown, ChevronUp, Sparkles, BrainCircuit } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
 
 interface PromptEditorProps {
   prd: string;
   setPrd: (val: string) => void;
-  systemPrompt: string;
-  setSystemPrompt: (val: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
 }
 
+const Icons = {
+  Sparkles: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-cyan-400">
+      <path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+    </svg>
+  ),
+  Zap: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  )
+};
+
 const PromptEditor: React.FC<PromptEditorProps> = ({
   prd,
   setPrd,
-  systemPrompt,
-  setSystemPrompt,
   onGenerate,
   isGenerating
 }) => {
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
   return (
-    <div className="flex flex-col h-full p-4 space-y-6">
-      {/* Header Segment */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-cyan-500/10 rounded-lg">
-            <BrainCircuit className="text-cyan-400 w-5 h-5" />
-          </div>
-          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-200">Requirement Input</h2>
+    <div className="flex flex-col h-full p-6 space-y-8">
+      {/* Segment Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+          <Icons.Sparkles />
         </div>
+        <div className="flex flex-col">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">Architect Input</h2>
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Define Structure & Requirements</p>
+        </div>
+      </div>
+
+      {/* Primary Input Container */}
+      <div className="flex-1 flex flex-col min-h-0 space-y-4">
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] px-1 italic">PRD & Feature Tree</label>
+        <div className="flex-1 relative group">
+          <textarea
+            value={prd}
+            onChange={(e) => setPrd(e.target.value)}
+            placeholder="Describe the application, page structure, or specific feature components..."
+            className="w-full h-full bg-black/40 border border-white/10 focus:border-cyan-500/30 p-8 text-slate-300 focus:outline-none focus:ring-4 focus:ring-cyan-500/5 transition-all duration-500 resize-none font-mono text-xs leading-loose placeholder:text-slate-700 custom-scrollbar shadow-inner"
+          />
+          <div className="absolute top-8 right-8 opacity-20 group-hover:opacity-10 transition-opacity pointer-events-none">
+            <div className="w-12 h-px bg-white" />
+            <div className="w-8 h-px bg-white mt-1.5 ml-4" />
+          </div>
+        </div>
+      </div>
+
+      {/* Action Button Hub */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest space-x-3">
+          <span>{prd.length} UTF-8</span>
+          <span className="opacity-40">{isGenerating ? 'Synthesizing' : 'Pipeline Ready'}</span>
+        </div>
+
         <button
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className={`p-2 rounded-lg transition-all ${showAdvanced ? 'bg-cyan-500/10 text-cyan-400' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+          onClick={onGenerate}
+          disabled={isGenerating || !prd.trim()}
+          className="relative px-8 py-3 rounded-2xl bg-cyan-600 font-black text-white text-[11px] uppercase tracking-widest shadow-xl shadow-cyan-900/40 active:scale-95 hover:bg-cyan-500 hover:shadow-cyan-500/30 disabled:opacity-30 transition-all duration-500 group"
         >
-          <Settings2 size={18} />
+          <div className="flex items-center gap-2">
+            {isGenerating ? (
+              <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <div className="group-hover:scale-110 transition-transform">
+                <Icons.Zap />
+              </div>
+            )}
+            <span>{isGenerating ? 'Synthesizing...' : 'Generate Design'}</span>
+          </div>
         </button>
       </div>
-
-      {/* Advanced Settings */}
-      <AnimatePresence>
-        {showAdvanced && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="glass-inset p-4 rounded-xl mb-4 space-y-3 border-cyan-500/10">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-cyan-500 uppercase tracking-tighter">System Persona</span>
-                <div className="h-px flex-1 bg-cyan-500/10" />
-              </div>
-              <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="Influence the AI's coding style..."
-                className="w-full h-24 bg-transparent border-none p-0 text-sm text-slate-400 focus:outline-none placeholder:text-slate-600 resize-none font-mono"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
-      {/* Main PRD Input */}
-      <div className="flex-1 flex flex-col min-h-0 space-y-3">
-        <textarea
-          value={prd}
-          onChange={(e) => setPrd(e.target.value)}
-          placeholder="Paste your PRD, feature list, or prompt here..."
-          className="flex-1 w-full bg-white/[0.02] border border-white/5 focus:border-cyan-500/30 rounded-2xl p-5 text-slate-300 focus:outline-none focus:ring-4 focus:ring-cyan-500/5 transition-all resize-none font-sans text-sm leading-relaxed placeholder:text-slate-600 shadow-inner"
-        />
-        <div className="flex items-center justify-between px-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-          <span>Tokens: {prd.length} chars</span>
-          <span>Formatting: MD Supported</span>
-        </div>
-      </div>
-
-      {/* Action Button */}
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={onGenerate}
-        disabled={isGenerating || !prd.trim()}
-        className="relative group overflow-hidden py-4 px-6 rounded-2xl bg-gradient-to-r from-cyan-600 to-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-cyan-500/20"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <div className="relative z-10 flex items-center justify-center gap-3">
-          {isGenerating ? (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-            >
-              <Sparkles className="w-5 h-5 text-white" />
-            </motion.div>
-          ) : (
-            <Sparkles className="w-5 h-5 text-white group-hover:animate-pulse" />
-          )}
-          <span className="font-black text-white uppercase tracking-widest text-sm">
-            {isGenerating ? 'Synthesizing...' : 'Generate UI Tree'}
-          </span>
-        </div>
-      </motion.button>
     </div>
   );
 };

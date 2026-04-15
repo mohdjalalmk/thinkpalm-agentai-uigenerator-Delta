@@ -4,67 +4,44 @@ import { NextResponse } from "next/server";
 const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-const DEFAULT_SYSTEM_PROMPT = `You are an expert Senior UI Engineer and React Developer.
-Your task is to convert a Product Requirements Document (PRD) into a high-quality, modern, and responsive React component tree using Tailwind CSS.
+const DEFAULT_SYSTEM_PROMPT = `STRICT_CODE_GENERATOR_MODE:
+You are an expert Senior UI Engineer. Your ONLY output is a single, executable React/Tailwind component.
 
-RULES:
-1. Use React (Next.js context) and Tailwind CSS exclusively.
-2. Use Lucide React for icons.
-3. Use Framer Motion for animations where appropriate.
-4. Export a single default component that captures the entire UI structure.
-5. Ensure the design is premium, with glassmorphism, smooth gradients, and balanced whitespace.
-6. The code must be self-contained in one block. Do not explain, just provide the code.
-7. Return only the code inside a markdown block.`;
+CRITICAL PIPELINE RULES:
+1. SINGLE BLOCK ONLY: Do NOT return multiple code blocks. Do NOT return separate CSS or HTML files. 
+2. NO TEXT: Do NOT explain your work, do NOT write a PRD, do NOT use markdown text outside the code block.
+3. TAILWIND ONLY: All styles MUST be in Tailwind classes. Do NOT generate separate CSS blocks.
+4. INPUT: Treat every input as a requirement for an immediate UI render. 
+5. STRUCTURE: Return a single default exported functional component.
+
+DESIGN LANGUAGE:
+- Premium Dark Glassmorphism.
+- Accent Palette: Cyan (#22d3ee) for actions, Purple (#a855f7) for depth.
+- Standard SVG icons (stroke-width: 1.5).`;
 
 export async function POST(req: Request) {
   try {
     const { prd, systemPrompt } = await req.json();
 
     if (!prd) {
-      return NextResponse.json({ error: "PRD is required" }, { status: 400 });
+      return NextResponse.json({ error: "Input prompt is required" }, { status: 400 });
     }
 
     if (!API_KEY) {
-      // Mock mode for demonstration if no API key is provided
-      console.warn("No Gemini API key found. Returning mock response.");
       return NextResponse.json({
         code: `
 import React from 'react';
-import { Layout, CheckCircle, Code, Play } from 'lucide-react';
-import { motion } from 'framer-motion';
 
-const MockComponent = () => {
+export default function EntryPoint() {
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-slate-200 p-8 flex flex-col items-center justify-center font-sans">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass p-12 max-w-2xl w-full text-center space-y-6"
-      >
-        <div className="w-20 h-20 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto border border-cyan-500/30">
-          <Layout className="w-10 h-10 text-cyan-400" />
-        </div>
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-          AI UI Agent Preview
-        </h1>
-        <p className="text-slate-400 text-lg">
-          Please provide your Gemini API key in the .env file to see real generations. 
-          This is a placeholder component showing the premium glassmorphic style.
-        </p>
-        <div className="grid grid-cols-2 gap-4 pt-4 text-sm">
-          <div className="flex items-center gap-2 text-cyan-400">
-            <CheckCircle size={16} /> Tailwind Ready
-          </div>
-          <div className="flex items-center gap-2 text-cyan-400">
-            <CheckCircle size={16} /> React Framer Motion
-          </div>
-        </div>
-      </motion.div>
+    <div className="min-h-screen bg-[#030408] text-white flex flex-col items-center justify-center p-8">
+      <div className="glass p-12 max-w-xl text-center rounded-[3rem] border border-white/5">
+        <h1 className="text-3xl font-black mb-4">API KEY REQUIRED</h1>
+        <p className="text-slate-400">Please provide a valid Gemini or Groq API key in the configuration.</p>
+      </div>
     </div>
   );
-};
-
-export default MockComponent;
+}
         `.trim()
       });
     }
@@ -73,11 +50,8 @@ export default MockComponent;
 
     if (API_KEY.startsWith("gsk_") || API_KEY.startsWith("xai-")) {
       const isGroq = API_KEY.startsWith("gsk_");
-      const apiUrl = isGroq
-        ? "https://api.groq.com/openai/v1/chat/completions"
-        : "https://api.x.ai/v1/chat/completions";
-
       const modelName = isGroq ? "llama-3.3-70b-versatile" : "grok-beta";
+      const apiUrl = isGroq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.x.ai/v1/chat/completions";
 
       const aiResponse = await fetch(apiUrl, {
         method: "POST",
@@ -89,7 +63,7 @@ export default MockComponent;
           model: modelName,
           messages: [
             { role: "system", content: systemPrompt || DEFAULT_SYSTEM_PROMPT },
-            { role: "user", content: `PRD contents:\n${prd}` }
+            { role: "user", content: `RENDER_UI_FOR: ${prd}` }
           ],
           temperature: 0,
         }),
@@ -97,30 +71,41 @@ export default MockComponent;
 
       if (!aiResponse.ok) {
         const errorData = await aiResponse.json();
-        const provider = isGroq ? "Groq" : "xAI";
-        throw new Error(`${provider} API Error: ${errorData.error?.message || aiResponse.statusText}`);
+        throw new Error(`Provider Error: ${errorData.error?.message || aiResponse.statusText}`);
       }
 
       const data = await aiResponse.json();
       text = data.choices[0].message.content;
     } else {
-      // Logic for Google Gemini
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const fullPrompt = `${systemPrompt || DEFAULT_SYSTEM_PROMPT}\n\nPRD contents:\n${prd}`;
-
-      const result = await model.generateContent(fullPrompt);
+      const result = await model.generateContent(`${systemPrompt || DEFAULT_SYSTEM_PROMPT}\n\nUSER_REQUEST: ${prd}`);
       const response = await result.response;
       text = response.text();
     }
 
-    // Extract code from markdown if present
-    const codeMatch = text.match(/```(?:tsx|jsx|javascript|typescript|react)?\n([\s\S]*?)```/);
-    const code = codeMatch ? codeMatch[1].trim() : text.trim();
+    // Advanced Multi-Block Selection Logic
+    let code = "";
+    const codeBlocks = Array.from(text.matchAll(/```(?:tsx|jsx|javascript|typescript|react|html|css)?\n([\s\S]*?)```/g)).map(m => m[1].trim());
+    
+    if (codeBlocks.length > 0) {
+      // Prioritize the block that looks like a React component
+      const reactBlock = codeBlocks.find(b => 
+        (b.includes("export default") || b.includes("return (")) && 
+        !b.includes("### CSS") // Filter out blocks that are just CSS descriptions
+      );
+      code = reactBlock || codeBlocks[0];
+    } else {
+      // Fallback if AI returned raw code without backticks
+      if (text.includes("export default") || (text.includes("<") && text.includes(">"))) {
+        code = text.trim();
+      } else {
+        throw new Error("AI returned descriptive text instead of a visual component. Try refining your requirements.");
+      }
+    }
 
     return NextResponse.json({ code });
   } catch (error) {
     console.error("AI Generation failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to generate components";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Synthesis failed" }, { status: 500 });
   }
 }
