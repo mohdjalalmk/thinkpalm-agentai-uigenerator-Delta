@@ -4,6 +4,8 @@ A high-performance, distraction-free dashboard for generating premium React comp
 
 <video src="SpecToUIAgent.mp4" width="100%" controls muted autoplay loop></video>
 
+![Prototype Dashboard](src/assets/prototype.png)
+
 ---
 
 ## ✨ Features
