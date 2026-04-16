@@ -1,4 +1,4 @@
-# 🌌 Agentic AI UI Generator
+# 🌌 UI Generator
 
 A high-performance, distraction-free dashboard for generating premium React components using an AI-driven agentic pipeline. Describe your requirements (PRD), and watch as the system synthesizes, transpiles, and renders your UI in real-time.
 
@@ -59,7 +59,6 @@ graph TD
 | **Frontend** | React, Next.js 15, Tailwind CSS |
 | **Runtime** | Babel Standalone (In-browser Transpilation) |
 | **Styling** | Vanilla CSS, Framer Motion (Animations) |
-| **Backend** | Next.js API Routes (Edge Ready) |
 | **AI Models** | Google Gemini 1.5 Flash, Llama 3.3 (via Groq), Grok Beta (via xAI) |
 
 ---
@@ -86,6 +85,13 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to start generating.
+
+---
+
+## 👥 Team: TeamDelta
+
+- **Shobhin Shaji**
+- **Mohammed jalal MK**
 
 ---
 
